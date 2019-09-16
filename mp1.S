@@ -86,6 +86,10 @@ mp1_poke:
 # Registers: Standard C calling convention
 
 .globl mp1_rtc_tasklet
+# this function is called by the RTC and iterates through both current_board
+# and next_board and calls tick_result and neighbor_count to find the next
+# value of the cell. The boards are then swapped and the screen is drawn
+# by calling draw screen
 mp1_rtc_tasklet:
 		pushl %ebp
 		movl %esp, %ebp
@@ -166,10 +170,12 @@ mp1_rtc_tasklet:
 			jmp DOA_LOOP
 
 		INCREMENT_CELLS_BORDER:
-
+			movl next_board, %edx
 			movl %ebx, %eax											# jump to this label if on the border
 			imul $SCR_WIDTH, %eax								# calculate offset and put it in %eax
 			addl %edi, %eax
+			addl %eax, %edx
+			movb $0, (%edx)
 			jmp INCREMENT_CELLS
 
 		INCREMENT_ROW:									      # increment row and reset column counter to 0
@@ -232,6 +238,8 @@ mp1_rtc_tasklet:
 # Registers: Standard C calling convention
 
 .globl mp1_ioctl
+# this is the dispatch function that takes in the cmd argument
+# to jump to another ioctl
 mp1_ioctl:											# dispatch function
 		movl 8(%esp), %ecx
 		cmpl $4, %ecx
@@ -244,7 +252,8 @@ mp1_ioctl:											# dispatch function
 
 # ----------------- Functions private to this file -------------------
 
-
+# this function iterates through all cells and passes in corresponding characters
+# and offset to be passed into mp1_poke
 draw_screen:
 # For simplicity, your implementation may assume a SCR_WIDTH of 80.
 	pushl %ebp
@@ -281,6 +290,9 @@ draw_screen:
 			leave
 			ret
 
+# this function starts the game by allocating space for boards,
+# writing in all 0s for both boards, and initializing the values
+# of certain variables
 mp1_ioctl_startgame:
 		pushl %ebp
 		movl %esp, %ebp
@@ -370,7 +382,8 @@ mp1_ioctl_startgame:
 			leave
 			ret
 
-
+# this function ends the game by freeing the allocated board space
+# and setting the board pointers to 0
 mp1_ioctl_endgame:
 			pushl %ebp
 			movl %esp, %ebp
@@ -415,6 +428,18 @@ mp1_ioctl_endgame:
 	   	# unsigned char guess[5];	/* current DNA fragment guess        */
 	    # unsigned char hint[5];	/* current DNA fragment hints        */
 	# };
+# this function takes in the user's keyboard input (arrow keys only)
+# Logic:
+# use mp1_copy_from_user to get the struct containing all the current data
+# split the direction input into L/R or U/D
+# split L/R into L or R and U/D into U or D
+# L or R:
+# cyclically update the selector arrow by deleting and re drawing it
+# by calling mp1_poke
+# U or D:
+# cyclically update the base in the current selector and redraw it
+# with mp1_poke
+# write in the new values back to the struct and copy it back to the user
 mp1_ioctl_keystroke:
 		pushl %ebp
 		movl %esp, %ebp
@@ -723,7 +748,8 @@ mp1_ioctl_keystroke:
 		leave
 		ret
 
-
+# this function retrieves certain variables from the kernel to the user
+# by using mp1_copy_to_user
 mp1_ioctl_getstatus:
 		pushl %ebp
 		movl %esp, %ebp
@@ -774,7 +800,11 @@ mp1_ioctl_getstatus:
 			movl $0, %eax											# return 0 is success
 			leave
 			ret
-
+# this function handles the work for the vaccination function in the game
+# (called by space bar input)
+# it will iterate through all cells and generate a random number to determine
+# whether or not the current cell should survive or die
+# aggression is then updated to increase the rate of the spread of the virus
 mp1_ioctl_vaccinate:
 		pushl %ebp
 		movl %esp, %ebp
@@ -793,9 +823,8 @@ mp1_ioctl_vaccinate:
 
 		LOOP_GENERATE:
 			movl current_board, %eax
-
 			addl %esi, %eax
-			cmpl $0, (%eax)									 # if current cell is dead, skip the generate
+			cmpl $0, (%eax)
 			je INCREMENT_VAX
 
 			pushl %eax
@@ -804,23 +833,20 @@ mp1_ioctl_vaccinate:
 			call generate
 			popl %edx
 			popl %ecx
-			popl %ecx                          # Caller restore registers
+			popl %edi                          # Caller restore registers
 
 			xorl %edx, %edx
 			movl $100, %edi
 			idiv %edi													 # divide random number (eax) by 100
 																			   # remainder is stored in edx
-			cmpl %ecx, %edx
-			jg SURVIVE
-			movl next_board, %edi
-			addl %esi, %edi
-			movl $0, (%edi)										 # kill the current cell
+			cmpb %cl, %dl
+			jle KILL													 # if remainder is =< percent, kill
 			jmp INCREMENT_VAX
 
-		SURVIVE:
-			movl next_board, %edi
+		KILL:
+			movl current_board, %edi
 			addl %esi, %edi
-			movl $1, (%edi)										 # keep the current cell alive
+			movb $0, (%edi)										 # kill the current cell
 			jmp INCREMENT_VAX
 
 		INCREMENT_VAX:
