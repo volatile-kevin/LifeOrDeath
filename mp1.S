@@ -651,7 +651,7 @@ mp1_ioctl_keystroke:
 	DOWN:
 		xorl %eax, %eax
 		xorl %ecx, %ecx
-		xorl %ebx, %ebx
+		xorl %ebx, %ebx										 # clear registers
 		movw SELECTOR(%esp), %bx					 # put the current selector value into a register
 		movb GUESS(%esp,%ebx,1), %cl       # put current guess into a register
 		movb HINT(%esp,%ebx,1), %al
@@ -663,12 +663,12 @@ mp1_ioctl_keystroke:
 			jmp DOWN_CONTINUE
 
 		DOWN_CYCLE:
-			movb $3, %cl
+			movb $3, %cl										 # makes next base T
 			jmp DOWN_CONTINUE
 
 		DOWN_CONTINUE:
 			movb $1, %dl
-			shl %cl, %dl
+			shl %cl, %dl											# checks if guess is in hint by:
 			test %dl, %al											# and 1 left shifted GUESS times with hint
 			jz CHECK_GUESS_DOWN
 			jmp UPDATECOPY_GUESS
@@ -693,7 +693,7 @@ mp1_ioctl_keystroke:
 
 		UP_CONTINUE:
 			movb $1, %dl
-			shl %cl, %dl
+			shl %cl, %dl											# checks if guess is in hint by:
 			test %dl, %al										  # and 1 left shifted GUESS times with hint
 			jz CHECK_GUESS_UP
 			jmp UPDATECOPY_GUESS
@@ -723,7 +723,7 @@ mp1_ioctl_keystroke:
 		jne COPY_FROMTO_FAILED
 		popl %eax
 		popl %eax
-		popl %eax
+		popl %eax													# teardown parameters
 
 		popl %esi
 		popl %edi
@@ -735,7 +735,7 @@ mp1_ioctl_keystroke:
 	COPY_FROMTO_FAILED:
 		popl %eax
 		popl %eax
-		popl %eax
+		popl %eax													# teardown parameters
 
 		popl %esi
 		popl %edi
