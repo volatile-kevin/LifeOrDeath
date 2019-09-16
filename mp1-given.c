@@ -21,7 +21,7 @@ extern unsigned long aggression;
 /* generate
  * Generate a pseudo-random 32-bit number.  This routine is not re-entrant
  * (not safe to use in parallel, even with interrupts, as it IS used in this
- * assignment), but since timing issues are inherently non-deterministic, 
+ * assignment), but since timing issues are inherently non-deterministic,
  * side effects from the lack of synchronization are ignored.  If you feel
  * that you want to avoid the side effects, either add synchronization or
  * privatize the tasklet's seed (make two copies and use one inside the
@@ -34,7 +34,7 @@ generate (void)
 {
     // quick and dirty pseudo-random number generation hack
     rand_seed = (0x7BFA65DULL * rand_seed + 0xA220189ULL) ^ (rand_seed >> 20);
-    
+
     return (rand_seed >> 16);
 }
 
@@ -96,14 +96,14 @@ init_virus (unsigned char* board)
 int
 neighbor_count (unsigned char* cell)
 {
-    return (cell[-SCR_WIDTH - 1] + cell[-SCR_WIDTH] + cell[-SCR_WIDTH + 1] + 
-    	    cell[-1] + cell[1] + 
+    return (cell[-SCR_WIDTH - 1] + cell[-SCR_WIDTH] + cell[-SCR_WIDTH + 1] +
+    	    cell[-1] + cell[1] +
 	    cell[SCR_WIDTH - 1] + cell[SCR_WIDTH] + cell[SCR_WIDTH + 1]);
 }
 
 
 /* tick_result
- * Modified game of life update function. 
+ * Modified game of life update function.
  * Arguments : unsigned char cur - current cell value (0 = dead, 1 = live)
  *             int neighbors - number of live neighbors for the cell
  * Returns   : 0 if the cell should be dead in the next generation,
@@ -119,4 +119,3 @@ tick_result (unsigned char cur, int neighbors)
     }
     return (2 <= neighbors && 3 >= neighbors);
 }
-

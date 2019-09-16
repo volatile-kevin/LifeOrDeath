@@ -95,11 +95,11 @@ mp1_rtc_tasklet:
 
 		movl current_board, %eax
 		cmpl $0, %eax
-		je DONE                            # if current_board is 0, return
+		je DONE                              # if current_board is 0, return
 
 		xorl %ebx, %ebx                      # initialize cell row counter
 		xorl %edi, %edi											 # initialize cell column counter
-		xorl %ecx, %ecx										 # initialize live cell counter
+		xorl %ecx, %ecx										   # initialize live cell counter
 
 		DOA_LOOP:
 			cmpl $0, %edi
@@ -109,26 +109,26 @@ mp1_rtc_tasklet:
 			cmpl $0, %ebx
 			je INCREMENT_CELLS_BORDER
 			cmpl $SCR_HEIGHT-1, %ebx
-			jge INCREMENT_CELLS_BORDER								# jump to INCREMENT_CELLS if cell is on border
+			jge INCREMENT_CELLS_BORDER					# jump to INCREMENT_CELLS if cell is on border
 
 
 			movl current_board, %eax
 			movl %ebx, %esi
 			imul $SCR_WIDTH, %esi
-			addl %edi, %esi
-			addl %esi, %eax 									  # add it to current position*******
-			movl %eax, %esi										# copy it to a new register
+			addl %edi, %esi											# calculate the offset
+			addl %esi, %eax 								  	# add it to current position
+			movl %eax, %esi											# copy it to a new register
 
 			pushl %ecx
-			pushl %edx                         # Caller save registers
-			pushl %esi													# push parameter (*cell)
+			pushl %edx                       	  # Caller save registers
+			pushl %esi											  	# push parameter (*cell)
 			call neighbor_count
-			popl %esi                          # pop parameter from stack (*cell)
+			popl %esi                           # pop parameter from stack (*cell)
 			popl %edx
 			popl %ecx
 
-			movl (%esi), %esi									# dereference the cell pointer
-			pushl %ecx                         # Caller save registers
+			movl (%esi), %esi									  # dereference the cell pointer
+			pushl %ecx                          # Caller save registers
 			pushl %edx													# push neighbors parameter
 			pushl %eax
 			pushl %esi													# push cell value
@@ -136,29 +136,29 @@ mp1_rtc_tasklet:
 			popl %esi
 			popl %esi
 			popl %edx
-			popl %ecx
+			popl %ecx														# Caller restore registers
 
-			pushl %ecx											 # save ecx
+			pushl %ecx											    # save ecx
 			movl %eax, %ecx
 			movl next_board, %edx
 			movl %ebx, %eax
 			imul $SCR_WIDTH, %eax
 			addl %edi, %eax
-			addl %eax, %edx										# find displacement and add to next_board
-			movb %cl, (%edx)									# 1 byte store new cell value into next_board
-			popl %ecx												 # restore ecx
+			addl %eax, %edx										  # find offset and add to next_board
+			movb %cl, (%edx)									  # 1 byte store new cell value into next_board
+			popl %ecx												    # restore ecx
 
-			cmpl $1, %esi											# if cell is alive (==1)
+			cmpl $1, %esi											  # if cell is alive (==1)
 			je INCREMENT_LIVE
 			jmp INCREMENT_CELLS
 
 		INCREMENT_LIVE:
-			incl %ecx												  # increment live cell counter
+			incl %ecx												    # increment live cell counter
 			jmp INCREMENT_CELLS
 
 		INCREMENT_CELLS:
-			cmpl $1600, %eax									# compare 1600 to width*bh+bl
-			jge DONE													# if cell counter has reached 1600, done
+			cmpl $1600, %eax									  # compare 1600 to width*bh+bl
+			jge DONE													  # if cell counter has reached 1600, done
 
 			cmpl $SCR_WIDTH-1, %edi							# if column counter has reached 80, increment row
 			je INCREMENT_ROW
@@ -167,12 +167,12 @@ mp1_rtc_tasklet:
 
 		INCREMENT_CELLS_BORDER:
 
-			movl %ebx, %eax
-			imul $SCR_WIDTH, %eax
+			movl %ebx, %eax											# jump to this label if on the border
+			imul $SCR_WIDTH, %eax								# calculate offset and put it in %eax
 			addl %edi, %eax
 			jmp INCREMENT_CELLS
 
-		INCREMENT_ROW:									# increment row and reset column counter to 0
+		INCREMENT_ROW:									      # increment row and reset column counter to 0
 			incl %ebx
 			xorl %edi, %edi
 			jmp DOA_LOOP
@@ -193,7 +193,7 @@ mp1_rtc_tasklet:
 			js RESET_POPULATION
 			movl %esi, population
 			jmp DONE_TASKLET
-		RESET_POPULATION:
+		RESET_POPULATION:										# reset population to 0 if it drops below
 			movl $0, %esi
 			movl %esi, population
 			jmp DONE_TASKLET
@@ -232,10 +232,10 @@ mp1_rtc_tasklet:
 # Registers: Standard C calling convention
 
 .globl mp1_ioctl
-mp1_ioctl:
+mp1_ioctl:											# dispatch function
 		movl 8(%esp), %ecx
 		cmpl $4, %ecx
-		jbe DISPATCH_IOCTL
+		jbe DISPATCH_IOCTL					# if the arg is from 0 to 4, success
 		movl $-1, %eax
 		ret
 	DISPATCH_IOCTL:
@@ -257,7 +257,7 @@ draw_screen:
 	movl current_board, %edx
 
 		PRINT_LOOP:
-			cmpb $0, (%edx)
+			cmpb $0, (%edx)								 # if the cell is 0, pass in dead, if 1, pass in alive
 			je DRAW_DEAD
 			movb $CELL_LIVE, %cl
 			jmp CONTINUE_DRAW
@@ -265,12 +265,12 @@ draw_screen:
 			movb $CELL_DEAD, %cl
 			jmp CONTINUE_DRAW
 
-		CONTINUE_DRAW:
+		CONTINUE_DRAW:									# double the offset to be passed into mp1_poke
 			imul $2, %esi, %eax
 			pushl %edx
 			call mp1_poke
 			popl %edx
-			incl %esi
+			incl %esi											# increment both counters
 			incl %edx
 			cmpl $1600, %esi
 			jl PRINT_LOOP
@@ -337,7 +337,7 @@ mp1_ioctl_startgame:
 			movb $0, (%eax)
 			movb $0, (%ebx)
 
-			cmpl $1600, %esi
+			cmpl $1600, %esi									# stop once the counter reaches 20*80
 			jge DONE_ZERO
 			incl %esi
 			jmp ZERO_LOOP
@@ -357,16 +357,16 @@ mp1_ioctl_startgame:
 			movl %edi, infection							 # infection = ret val of init_virus
 			movl $80, aggression
 			movl $8000000, population
-			movl $0, %eax											# if both mallocs succeed, return 0
+			movl $0, %eax											 # if both mallocs succeed, return 0
 			jmp DONE_FINAL
 
-		MALLOC_FAIL:												# label that returns -1, called if malloc fails
+		MALLOC_FAIL:												 # label that returns -1, called if malloc fails
 			movl $-1, %eax
 			jmp DONE_FINAL
 		DONE_FINAL:
 			popl %esi
 			popl %edi
-			popl %ebx													# Callee restore registers
+			popl %ebx													 # Callee restore registers
 			leave
 			ret
 
@@ -419,23 +419,23 @@ mp1_ioctl_keystroke:
 		pushl %ebp
 		movl %esp, %ebp
 		cmpl $0, 8(%ebp)
-		je ARG_FROMTO_FAILED
+		je ARG_FROMTO_FAILED							 # if arg is 0, immediately fail
 		pushl %ebx
 		pushl %edi
 		pushl %esi												 # callee save registers
 
-		subl $KA_STACK, %esp
+		subl $KA_STACK, %esp							 # allocate space for struct on stack
 		movl %esp, %ebx
-		pushl $KA_SIZE										# push size
-		pushl 8(%ebp)										  # push pointer from
-		pushl %ebx											  # push pointer to
+		pushl $KA_SIZE									 	 # push size
+		pushl 8(%ebp)										   # push pointer from
+		pushl %ebx											   # push pointer to
 		call mp1_copy_from_user
 		cmp $0, %eax
-		jne COPY_FROMTO_FAILED							# if mp1_copy_to_user returns not 1, it failed
+		jne COPY_FROMTO_FAILED						 # if mp1_copy_to_user returns not 1, it failed
 		popl %eax
 		popl %eax
-		popl %eax													# pop 3 times to take off parameters
-		jmp DO_THE_RIGHT_THING						# the empty 16 bytes should have the copied data
+		popl %eax													 # pop 3 times to take off parameters
+		jmp DO_THE_RIGHT_THING						 # the empty 16 bytes should have the copied data
 
 
 		# DIRECTION = 0
@@ -444,7 +444,7 @@ mp1_ioctl_keystroke:
 		# HINT      = 9
 	DO_THE_RIGHT_THING:
 		movw (%esp), %ax  									# put the direction and selector into a register
-		andw $1, %ax
+		andw $1, %ax												# and the direction with 1 to split L/R and U/D
 		cmpw $0, %ax
 		je LEFT_RIGHT
 		jmp UP_DOWN
@@ -454,8 +454,8 @@ mp1_ioctl_keystroke:
 		movw SELECTOR(%esp), %ax						# put the current selector value into a register
 		imul $10, %eax
 		addl $14, %eax
-		addl $1760, %eax										 # calculate offset, put it into eax
-		imul $2, %eax
+		addl $1760, %eax										# calculate offset, put it into eax
+		imul $2, %eax												# double it before calling mp1_poke
 
 		movb select_blank, %cl
 		call mp1_poke
@@ -466,11 +466,11 @@ mp1_ioctl_keystroke:
 
 		addl $2, %eax
 		movb select_blank, %cl
-		call mp1_poke												# replace the current selector with space
+		call mp1_poke												# increment the offset by 2 each time
 
 		xorl %eax, %eax
-		movw (%esp), %ax  									#  put the direction and selector into a register
-		andw $2, %ax
+		movw (%esp), %ax  									# put the direction and selector into a register
+		andw $2, %ax												# and it with 2 to split L and R
 		cmpw $0, %ax
 		je LEFT
 		jmp RIGHT
@@ -485,11 +485,11 @@ mp1_ioctl_keystroke:
 
 		imul $10, %eax
 		addl $14, %eax
-		addl $1760, %eax										 # calculate offset, put it into eax
+		addl $1760, %eax										# calculate offset, put it into eax
 		imul $2, %eax
 
 		movl select_image, %ebx
-		movb %bl, %cl									 # put the first char of ==> into cl
+		movb %bl, %cl									      # put the first char of ==> into cl
 		call mp1_poke
 
 		movl select_image, %ebx
@@ -499,8 +499,8 @@ mp1_ioctl_keystroke:
 		call mp1_poke
 
 		movl select_image, %ebx
-		addl $2, %eax
-		shrl $16, %ebx
+		addl $2, %eax												# double offset before mp1_poke
+		shrl $16, %ebx											# shift right 8 times to get to next char
 		movb %bl, %cl
 		call mp1_poke
 
@@ -508,15 +508,15 @@ mp1_ioctl_keystroke:
 
 
 	LEFT_CYCLE:
-		movl $4, %eax                      # if left and selector = 0, then selector = 4
-		movl %eax, %edi											# save the value
+		movl $4, %eax                     # if left and selector = 0, then selector = 4
+		movl %eax, %edi										# save the value
 		imul $10, %eax
 		addl $14, %eax
-		addl $1760, %eax										 # calculate offset, put it into eax
+		addl $1760, %eax									# calculate offset, put it into eax
 		imul $2, %eax
 
 		movl select_image, %ebx
-		movb %bl, %cl									 # put the first char of ==> into cl
+		movb %bl, %cl									    # put the first char of ==> into cl
 		call mp1_poke
 
 		movl select_image, %ebx
@@ -526,8 +526,8 @@ mp1_ioctl_keystroke:
 		call mp1_poke
 
 		movl select_image, %ebx
-		addl $2, %eax
-		shrl $16, %ebx
+		addl $2, %eax											# double offset before mp1_poke
+		shrl $16, %ebx										# shift right 8 times to get to next char
 		movb %bl, %cl
 		call mp1_poke
 
@@ -544,11 +544,11 @@ mp1_ioctl_keystroke:
 
 		imul $10, %eax
 		addl $14, %eax
-		addl $1760, %eax										 # calculate offset, put it into eax
-		imul $2, %eax
+		addl $1760, %eax										# calculate offset, put it into eax
+		imul $2, %eax												# double it before mp1_poke
 
 		movl select_image, %ebx
-		movb %bl, %cl									 # put the first char of ==> into cl
+		movb %bl, %cl									      # put the first char of ==> into cl
 		call mp1_poke
 
 		movl select_image, %ebx
@@ -559,22 +559,22 @@ mp1_ioctl_keystroke:
 
 		movl select_image, %ebx
 		addl $2, %eax
-		shrl $16, %ebx
+		shrl $16, %ebx											# shift right 8 times to get to next char
 		movb %bl, %cl
 		call mp1_poke
 
 		jmp UPDATECOPY_SELECTOR
 
 	RIGHT_CYCLE:
-		movl $0, %eax                      # if left and selector = 0, then selector = 4
+		movl $0, %eax                       # if left and selector = 0, then selector = 4
 		movl %eax, %edi											# save the value
 		imul $10, %eax
 		addl $14, %eax
-		addl $1760, %eax										 # calculate offset, put it into eax
+		addl $1760, %eax										# calculate offset, put it into eax
 		imul $2, %eax
 
 		movl select_image, %ebx
-		movb %bl, %cl									 # put the first char of ==> into cl
+		movb %bl, %cl									      # put the first char of ==> into cl
 		call mp1_poke
 
 		movl select_image, %ebx
@@ -585,7 +585,7 @@ mp1_ioctl_keystroke:
 
 		movl select_image, %ebx
 		addl $2, %eax
-		shrl $16, %ebx
+		shrl $16, %ebx											# shift right 8 times to get to next char
 		movb %bl, %cl
 		call mp1_poke
 
@@ -595,12 +595,12 @@ mp1_ioctl_keystroke:
 	UPDATECOPY_SELECTOR:
 		movl %edi, %eax
 		movw %ax, SELECTOR(%esp)
-		movl  %esp, %ebx                   # esp points to top of infection and population struct
+		movl  %esp, %ebx                   # esp points to top of struct
 		pushl $KA_SIZE										 # push size
 		pushl %ebx												 # push pointer from
 		pushl 8(%ebp)                      # push pointer to
 		call mp1_copy_to_user
-		cmpl $0, %eax
+		cmpl $0, %eax											 # if mp1_copy_to_user fails it will return !=0
 		jne COPY_FROMTO_FAILED
 		popl %eax
 		popl %eax
@@ -609,16 +609,16 @@ mp1_ioctl_keystroke:
 		popl %esi
 		popl %edi
 		popl %ebx													# Callee restore registers
-		movl $0, %eax
+		movl $0, %eax											# return 0 success
 		leave
 		ret
 
 	KEYSTROKE_COPY_TO_FAIL:
-		movl $-1, %eax
+		movl $-1, %eax										# return -1 fail
 	UP_DOWN:
 		xorl %eax, %eax
-		movl (%esp), %eax  									#  put the direction and selector into a register
-		andb $2, %al
+		movl (%esp), %eax  								# put the direction and selector into a register
+		andb $2, %al											# and with 2 to split U and D
 		cmpb $0, %al
 		je DOWN
 		jmp UP
@@ -627,13 +627,13 @@ mp1_ioctl_keystroke:
 		xorl %eax, %eax
 		xorl %ecx, %ecx
 		xorl %ebx, %ebx
-		movw SELECTOR(%esp), %bx						# put the current selector value into a register
-		movb GUESS(%esp,%ebx,1), %cl      # put current guess into a register
+		movw SELECTOR(%esp), %bx					 # put the current selector value into a register
+		movb GUESS(%esp,%ebx,1), %cl       # put current guess into a register
 		movb HINT(%esp,%ebx,1), %al
 
 		CHECK_GUESS_DOWN:
-			decb %cl
-			cmpb $-1, %cl
+			decb %cl												 # decrement the base
+			cmpb $-1, %cl										 # if the base is A, make the next base T
 			je DOWN_CYCLE
 			jmp DOWN_CONTINUE
 
@@ -644,7 +644,7 @@ mp1_ioctl_keystroke:
 		DOWN_CONTINUE:
 			movb $1, %dl
 			shl %cl, %dl
-			test %dl, %al
+			test %dl, %al											# and 1 left shifted GUESS times with hint
 			jz CHECK_GUESS_DOWN
 			jmp UPDATECOPY_GUESS
 
@@ -652,40 +652,40 @@ mp1_ioctl_keystroke:
 		xorl %eax, %eax
 		xorl %ecx, %ecx
 		xorl %ebx, %ebx
-		movw SELECTOR(%esp), %bx						# put the current selector value into a register
-		movb GUESS(%esp,%ebx,1), %cl      # put current guess into a register
+		movw SELECTOR(%esp), %bx					  # put the current selector value into a register
+		movb GUESS(%esp,%ebx,1), %cl        # put current guess into a register
 		movb HINT(%esp,%ebx,1), %al
 
-	CHECK_GUESS_UP:
-		incb %cl
-		cmpb $4, %cl
-		je UP_CYCLE
-		jmp UP_CONTINUE
+		CHECK_GUESS_UP:
+			incb %cl
+			cmpb $4, %cl											# if the base is T, make next base A
+			je UP_CYCLE
+			jmp UP_CONTINUE
 
-	UP_CYCLE:
-		movb $0, %cl									# if guess is T, Up is pressed, guess = A
-		jmp UP_CONTINUE
+		UP_CYCLE:
+			movb $0, %cl									    # if guess is T, Up is pressed, guess = A
+			jmp UP_CONTINUE
 
-	UP_CONTINUE:
-		movb $1, %dl
-		shl %cl, %dl
-		test %dl, %al
-		jz CHECK_GUESS_UP
-		jmp UPDATECOPY_GUESS
+		UP_CONTINUE:
+			movb $1, %dl
+			shl %cl, %dl
+			test %dl, %al										  # and 1 left shifted GUESS times with hint
+			jz CHECK_GUESS_UP
+			jmp UPDATECOPY_GUESS
 
 
 # update and copy guess to user
 	UPDATECOPY_GUESS:
-		movb %cl, GUESS(%esp,%ebx,1)      # put current guess into a register
-		movl base_array, %edi
+		movb %cl, GUESS(%esp,%ebx,1)        # put current guess into a register
+		movl base_array, %edi								# put base_array into a register to access base chars
 		imul $8, %ecx
-		shr %cl, %edi
+		shr %cl, %edi												# shift it 8*guess times
 		movl %edi, %ecx
 
 		imul $10, %ebx
 		addl $18, %ebx
 		addl $1760, %ebx
-		imul $2, %ebx
+		imul $2, %ebx												# find offset of (18+10S, 22)
 		movl %ebx, %eax
 		call mp1_poke
 
@@ -694,7 +694,7 @@ mp1_ioctl_keystroke:
 		pushl %ebx												 # push pointer from
 		pushl 8(%ebp)                      # push pointer to
 		call mp1_copy_to_user
-		cmpl $0, %eax
+		cmpl $0, %eax											 # if mp1_copy_to_user fails it will return !=0
 		jne COPY_FROMTO_FAILED
 		popl %eax
 		popl %eax
@@ -703,7 +703,7 @@ mp1_ioctl_keystroke:
 		popl %esi
 		popl %edi
 		popl %ebx													# Callee restore registers
-		movl $0, %eax
+		movl $0, %eax											# return 0 success
 		leave
 		ret
 
@@ -715,7 +715,7 @@ mp1_ioctl_keystroke:
 		popl %esi
 		popl %edi
 		popl %ebx													# Callee restore registers
-		movl $-1, %eax
+		movl $-1, %eax										# return -1 fail
 		leave
 		ret
 	ARG_FROMTO_FAILED:
@@ -742,19 +742,19 @@ mp1_ioctl_getstatus:
 
 		call mp1_copy_to_user
 		cmpl $0, %eax
-		jne COPY_TO_FAILED										 # if mp1_copy_to_user returns not 1, it failed
+		jne COPY_TO_FAILED								 # if mp1_copy_to_user returns not 1, it failed
 		popl %eax
 		popl %eax
 		popl %eax
 		popl %eax
-		popl %eax
+		popl %eax													 # pop off all arguments
 
 		popl %esi
 		popl %edi
-		popl %ebx
+		popl %ebx													 # Callee restore register
 		jmp DONE_COPY
 		ARG_TO_FAILED:
-			movl $-1, %eax
+			movl $-1, %eax									 # return -1 fail
 			leave
 			ret
 		COPY_TO_FAILED:
@@ -767,7 +767,7 @@ mp1_ioctl_getstatus:
 			popl %esi
 			popl %edi
 			popl %ebx												  # Callee restore
-			movl $-1, %eax
+			movl $-1, %eax										# return -1 fail
 			leave
 			ret
 		DONE_COPY:
@@ -789,13 +789,13 @@ mp1_ioctl_vaccinate:
 		movw %bx, %cx											 # put the low 16 bits into another register
 		shrl $16, %ebx										 # right shift 16x to put the high 16 bits into the low
 
-		xorl %esi, %esi
+		xorl %esi, %esi										 # clear a register for counting
 
 		LOOP_GENERATE:
 			movl current_board, %eax
 
 			addl %esi, %eax
-			cmpl $0, (%eax)
+			cmpl $0, (%eax)									 # if current cell is dead, skip the generate
 			je INCREMENT_VAX
 
 			pushl %eax
@@ -814,13 +814,13 @@ mp1_ioctl_vaccinate:
 			jg SURVIVE
 			movl next_board, %edi
 			addl %esi, %edi
-			movl $0, (%edi)
+			movl $0, (%edi)										 # kill the current cell
 			jmp INCREMENT_VAX
 
 		SURVIVE:
 			movl next_board, %edi
 			addl %esi, %edi
-			movl $1, (%edi)
+			movl $1, (%edi)										 # keep the current cell alive
 			jmp INCREMENT_VAX
 
 		INCREMENT_VAX:
@@ -830,11 +830,11 @@ mp1_ioctl_vaccinate:
 			jmp LOOP_GENERATE
 
 		DONE_GENERATE:
-			addw %bx, aggression
+			addw %bx, aggression							# add to aggression value
 			popl %esi
 			popl %edi
 			popl %ebx													# Callee restore registers
-			mov $0, %eax
+			mov $0, %eax											# return 0 always
 			leave
 			ret
 
@@ -842,7 +842,7 @@ mp1_ioctl_vaccinate:
 			popl %esi
 			popl %edi
 			popl %ebx													# Callee restore registers
-			mov $0, %eax
+			mov $0, %eax											# return 0 always
 			leave
 			ret
 jump_table:
