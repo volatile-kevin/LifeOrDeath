@@ -26,7 +26,7 @@
     	SCR_WIDTH  = 80
 	SCR_HEIGHT = 20
 	SCR_SIZE   = ((SCR_WIDTH) * (SCR_HEIGHT))
-
+	SELECTOR_OFFSET = 1760
     # ASCII cell images
 
         CELL_LIVE = 0x78
@@ -161,7 +161,7 @@ mp1_rtc_tasklet:
 			jmp INCREMENT_CELLS
 
 		INCREMENT_CELLS:
-			cmpl $1600, %eax									  # compare 1600 to width*bh+bl
+			cmpl $SCR_SIZE, %eax									  # compare 1600 to width*bh+bl
 			jge DONE													  # if cell counter has reached 1600, done
 
 			cmpl $SCR_WIDTH-1, %edi							# if column counter has reached 80, increment row
@@ -241,7 +241,7 @@ mp1_rtc_tasklet:
 # this is the dispatch function that takes in the cmd argument
 # to jump to another ioctl
 mp1_ioctl:											# dispatch function
-		movl 8(%esp), %ecx
+		movl 8(%esp), %ecx					# arg is 8 below stack ptr
 		cmpl $4, %ecx
 		jbe DISPATCH_IOCTL					# if the arg is from 0 to 4, success
 		movl $-1, %eax
@@ -281,7 +281,7 @@ draw_screen:
 			popl %edx
 			incl %esi											# increment both counters
 			incl %edx
-			cmpl $1600, %esi
+			cmpl $SCR_SIZE, %esi
 			jl PRINT_LOOP
 		DRAW_DONE:
 			popl %esi
@@ -300,7 +300,7 @@ mp1_ioctl_startgame:
 		pushl %edi
 		pushl %esi												 # callee save registers
 
-		movl 8(%ebp), %ebx								 # copy arg into a register to be pushed
+		movl 8(%ebp), %ebx								 # copy arg into a register to be pushed, arg is 8 below base ptr
 		pushl %eax
 		pushl %ecx
 		pushl %edx                         # Caller save registers
@@ -311,7 +311,7 @@ mp1_ioctl_startgame:
 		popl %ecx
 		popl %eax                          # Caller restore registers
 
-		movl $1600, %edi									 # put size = 1600 into a register
+		movl $SCR_SIZE, %edi									 # put size = 1600 into a register
 		pushl %eax
 		pushl %ecx
 		pushl %edx                         # Caller save registers
@@ -349,7 +349,7 @@ mp1_ioctl_startgame:
 			movb $0, (%eax)
 			movb $0, (%ebx)
 
-			cmpl $1600, %esi									# stop once the counter reaches 20*80
+			cmpl $SCR_SIZE, %esi									# stop once the counter reaches 20*80
 			jge DONE_ZERO
 			incl %esi
 			jmp ZERO_LOOP
@@ -367,8 +367,8 @@ mp1_ioctl_startgame:
 			movl %eax, %edi
 			popl %eax                          # Caller restore registers
 			movl %edi, infection							 # infection = ret val of init_virus
-			movl $80, aggression
-			movl $8000000, population
+			movl $80, aggression								# initial aggression
+			movl $8000000, population							# initial population
 			movl $0, %eax											 # if both mallocs succeed, return 0
 			jmp DONE_FINAL
 
@@ -443,7 +443,7 @@ mp1_ioctl_endgame:
 mp1_ioctl_keystroke:
 		pushl %ebp
 		movl %esp, %ebp
-		cmpl $0, 8(%ebp)
+		cmpl $0, 8(%ebp)								# copy arg into a register to be pushed, arg is 8 below base ptr
 		je ARG_FROMTO_FAILED							 # if arg is 0, immediately fail
 		pushl %ebx
 		pushl %edi
@@ -452,7 +452,7 @@ mp1_ioctl_keystroke:
 		subl $KA_STACK, %esp							 # allocate space for struct on stack
 		movl %esp, %ebx
 		pushl $KA_SIZE									 	 # push size
-		pushl 8(%ebp)										   # push pointer from
+		pushl 8(%ebp)										   # push pointer from, arg is 8 below base ptr
 		pushl %ebx											   # push pointer to
 		call mp1_copy_from_user
 		cmp $0, %eax
@@ -477,9 +477,9 @@ mp1_ioctl_keystroke:
 	LEFT_RIGHT:
 		xorl %eax, %eax
 		movw SELECTOR(%esp), %ax						# put the current selector value into a register
-		imul $10, %eax
-		addl $14, %eax
-		addl $1760, %eax										# calculate offset, put it into eax
+		imul $10, %eax	
+		addl $14, %eax												# find offset of (14+10S, 22)
+		addl $SELECTOR_OFFSET, %eax										# calculate offset, put it into eax
 		imul $2, %eax												# double it before calling mp1_poke
 
 		movb select_blank, %cl
@@ -509,8 +509,8 @@ mp1_ioctl_keystroke:
 		movl %eax, %edi											# save the value
 
 		imul $10, %eax
-		addl $14, %eax
-		addl $1760, %eax										# calculate offset, put it into eax
+		addl $14, %eax													# find offset of (14+10S, 22)
+		addl $SELECTOR_OFFSET, %eax										# calculate offset, put it into eax
 		imul $2, %eax
 
 		movl select_image, %ebx
@@ -536,8 +536,8 @@ mp1_ioctl_keystroke:
 		movl $4, %eax                     # if left and selector = 0, then selector = 4
 		movl %eax, %edi										# save the value
 		imul $10, %eax
-		addl $14, %eax
-		addl $1760, %eax									# calculate offset, put it into eax
+		addl $14, %eax												# find offset of (14+10S, 22)
+		addl $SELECTOR_OFFSET, %eax									# calculate offset, put it into eax
 		imul $2, %eax
 
 		movl select_image, %ebx
@@ -568,8 +568,8 @@ mp1_ioctl_keystroke:
 		movl %eax, %edi											# save the value
 
 		imul $10, %eax
-		addl $14, %eax
-		addl $1760, %eax										# calculate offset, put it into eax
+		addl $14, %eax													# find offset of (14+10S, 22)
+		addl $SELECTOR_OFFSET, %eax										# calculate offset, put it into eax
 		imul $2, %eax												# double it before mp1_poke
 
 		movl select_image, %ebx
@@ -594,8 +594,8 @@ mp1_ioctl_keystroke:
 		movl $0, %eax                       # if left and selector = 0, then selector = 4
 		movl %eax, %edi											# save the value
 		imul $10, %eax
-		addl $14, %eax
-		addl $1760, %eax										# calculate offset, put it into eax
+		addl $14, %eax													# find offset of (14+10S, 22)
+		addl $SELECTOR_OFFSET, %eax										# calculate offset, put it into eax
 		imul $2, %eax
 
 		movl select_image, %ebx
@@ -623,7 +623,7 @@ mp1_ioctl_keystroke:
 		movl  %esp, %ebx                   # esp points to top of struct
 		pushl $KA_SIZE										 # push size
 		pushl %ebx												 # push pointer from
-		pushl 8(%ebp)                      # push pointer to
+		pushl 8(%ebp)                      # push pointer to, arg is 8 below base ptr
 		call mp1_copy_to_user
 		cmpl $0, %eax											 # if mp1_copy_to_user fails it will return !=0
 		jne COPY_FROMTO_FAILED
@@ -709,7 +709,7 @@ mp1_ioctl_keystroke:
 
 		imul $10, %ebx
 		addl $18, %ebx
-		addl $1760, %ebx
+		addl $SELECTOR_OFFSET, %ebx
 		imul $2, %ebx												# find offset of (18+10S, 22)
 		movl %ebx, %eax
 		call mp1_poke
@@ -850,7 +850,7 @@ mp1_ioctl_vaccinate:
 			jmp INCREMENT_VAX
 
 		INCREMENT_VAX:
-			cmpl $1600, %esi
+			cmpl $SCR_SIZE, %esi
 			jge DONE_GENERATE
 			incl %esi
 			jmp LOOP_GENERATE
